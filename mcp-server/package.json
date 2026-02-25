@@ -1,0 +1,26 @@
+{
+	"name": "agent-lens",
+	"version": "0.1.0",
+	"description": "MCP server giving AI agents enhanced browser perception — DOM change detection, annotated screenshots, page readiness signals, and more",
+	"type": "module",
+	"bin": {
+		"agent-lens": "./dist/index.js"
+	},
+	"main": "./dist/index.js",
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --dts --clean",
+		"dev": "tsup src/index.ts --format esm --watch --onSuccess 'node dist/index.js'"
+	},
+	"keywords": ["mcp", "chrome", "browser", "ai", "agent", "dom", "screenshot"],
+	"license": "MIT",
+	"devDependencies": {
+		"@types/ws": "latest",
+		"tsup": "latest",
+		"typescript": "latest",
+		"zod": "^4.3.6"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "latest",
+		"ws": "latest"
+	}
+}

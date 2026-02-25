@@ -1,0 +1,14 @@
+{
+	"name": "agent-lens-monorepo",
+	"private": true,
+	"workspaces": [
+		"extension",
+		"mcp-server"
+	],
+	"scripts": {
+		"build": "bun run build:extension && bun run build:mcp",
+		"build:extension": "cd extension && bun run build",
+		"build:mcp": "cd mcp-server && bun run build",
+		"dev:mcp": "cd mcp-server && bun run dev"
+	}
+}
