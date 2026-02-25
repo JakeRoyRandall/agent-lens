@@ -100,7 +100,15 @@ const resolveRole = (el: Element): string => {
 
 const isVisible = (el: Element): boolean => {
 	const html = el as HTMLElement
-	if (html.offsetParent === null && html.tagName !== 'BODY' && html.tagName !== 'HTML') return false
+	if (html.offsetParent === null) {
+		// offsetParent is null for fixed/sticky, body, html, and hidden elements
+		const tag = html.tagName
+		if (tag !== 'BODY' && tag !== 'HTML') {
+			const style = getComputedStyle(html)
+			if (style.display === 'none') return false
+			if (style.position !== 'fixed' && style.position !== 'sticky') return false
+		}
+	}
 	const rect = el.getBoundingClientRect()
 	return rect.height >= 10
 }

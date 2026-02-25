@@ -85,6 +85,12 @@ async function handleRequest(msg: RequestMessage): Promise<ResponseMessage> {
 			return { id, type: 'response', success: false, error: 'No active tab found' }
 		}
 
+		// Content scripts cannot run on restricted browser pages
+		const restrictedPrefixes = ['chrome://', 'chrome-extension://', 'edge://', 'about:', 'devtools://']
+		if (tab.url && restrictedPrefixes.some(p => tab.url!.startsWith(p))) {
+			return { id, type: 'response', success: false, error: `Cannot run on restricted page: ${tab.url}. Navigate to a regular web page.` }
+		}
+
 		// Annotated screenshots need special handling: content script creates overlay,
 		// service worker captures screenshot, then content script cleans up
 		if (action === 'screenshot_annotated') {

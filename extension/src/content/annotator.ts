@@ -62,7 +62,7 @@ const buildAnnotation = (el: HTMLElement, rect: DOMRect): ElementAnnotation => {
 		},
 	}
 
-	const text = truncate(el.textContent)
+	const text = truncate(el.innerText || el.textContent || el.getAttribute('aria-label') || el.getAttribute('title'))
 	if (text) annotation.text = text
 
 	if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {

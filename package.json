@@ -10,5 +10,9 @@
 		"build:extension": "cd extension && bun run build",
 		"build:mcp": "cd mcp-server && bun run build",
 		"dev:mcp": "cd mcp-server && bun run dev"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.58.2",
+		"playwright": "^1.58.2"
 	}
 }

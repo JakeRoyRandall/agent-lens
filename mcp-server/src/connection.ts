@@ -12,10 +12,19 @@ type PendingRequest = {
 	timer: ReturnType<typeof setTimeout>
 }
 
+type ConnectionStatus = {
+	connected: boolean
+	connectedSince: number | null
+	lastActivity: number | null
+}
+
 let wss: WebSocketServer | null = null
 let extensionSocket: WebSocket | null = null
 const pendingRequests = new Map<string, PendingRequest>()
 let requestCounter = 0
+let reconnectCount = 0
+let connectedSince: number | null = null
+let lastActivity: number | null = null
 
 /**
  * @description Start the WebSocket server and listen for extension connections.
@@ -23,11 +32,23 @@ let requestCounter = 0
 export function startServer(): void {
 	wss = new WebSocketServer({ port: PORT })
 
+	wss.on('error', (err: NodeJS.ErrnoException) => {
+		if (err.code === 'EADDRINUSE') {
+			console.error(`[agent-lens] Port ${PORT} in use. Another agent-lens instance may be running. Tools will return "extension not connected" until the port is freed.`)
+		} else {
+			console.error(`[agent-lens] WebSocket server error:`, err.message)
+		}
+	})
+
 	wss.on('connection', (socket) => {
-		console.error(`[agent-lens] extension connected`)
+		reconnectCount++
+		connectedSince = Date.now()
+		lastActivity = Date.now()
+		console.error(`[agent-lens] extension connected (connection #${reconnectCount})`)
 		extensionSocket = socket
 
 		socket.on('message', (raw) => {
+			lastActivity = Date.now()
 			try {
 				const msg = JSON.parse(raw.toString())
 				if (msg.type === 'response' && msg.id) {
@@ -49,7 +70,10 @@ export function startServer(): void {
 
 		socket.on('close', () => {
 			console.error('[agent-lens] extension disconnected')
-			if (extensionSocket === socket) extensionSocket = null
+			if (extensionSocket === socket) {
+				extensionSocket = null
+				connectedSince = null
+			}
 			// Reject all pending requests
 			for (const [id, pending] of pendingRequests) {
 				clearTimeout(pending.timer)
@@ -79,6 +103,7 @@ export function sendRequest(action: string, params: Record<string, unknown> = {}
 		}, timeout)
 
 		pendingRequests.set(id, { resolve, reject, timer })
+		lastActivity = Date.now()
 
 		extensionSocket.send(JSON.stringify({
 			id,
@@ -94,6 +119,17 @@ export function sendRequest(action: string, params: Record<string, unknown> = {}
  */
 export function isConnected(): boolean {
 	return extensionSocket !== null && extensionSocket.readyState === WebSocket.OPEN
+}
+
+/**
+ * @description Get detailed connection status for diagnostics.
+ */
+export function getConnectionStatus(): ConnectionStatus {
+	return {
+		connected: isConnected(),
+		connectedSince,
+		lastActivity,
+	}
 }
 
 /**

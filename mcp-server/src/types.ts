@@ -17,6 +17,7 @@ export const DomChangesGetSchema = {
 export const ScreenshotAnnotatedSchema = {
 	scope: z.string().optional().describe('CSS selector to limit annotation scope'),
 	elementTypes: z.array(z.string()).optional().describe('Element types to annotate: button, link, input, select, textarea (default: all interactive)'),
+	includeImage: z.boolean().optional().describe('Include the annotated screenshot image in the response (default: true). Set to false to only return the element legend, saving ~90K tokens.'),
 }
 
 export const PageReadyCheckSchema = {}

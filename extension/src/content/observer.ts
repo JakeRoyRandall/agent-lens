@@ -51,6 +51,18 @@ const handleMutations = (mutations: MutationRecord[]) => {
 	for (const m of mutations) {
 		if (m.type === 'childList') {
 			for (const node of m.addedNodes) {
+				// Text nodes from textContent replacement show up as childList
+				if (node instanceof Text) {
+					if (!allowedTypes || allowedTypes.has('text')) {
+						const parent = m.target instanceof Element ? m.target : null
+						pushMutation({
+							type: 'text',
+							selector: parent ? generateSelector(parent) : 'text()',
+							newValue: truncate(node.textContent),
+						})
+					}
+					continue
+				}
 				if (!(node instanceof Element)) continue
 				if (allowedTypes && !allowedTypes.has('added')) continue
 				pushMutation({

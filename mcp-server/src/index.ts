@@ -5,7 +5,7 @@
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { startServer, sendRequest, isConnected } from './connection.js'
+import { startServer, sendRequest, isConnected, getConnectionStatus } from './connection.js'
 import {
 	DomWatchStartSchema,
 	DomWatchStopSchema,
@@ -76,11 +76,45 @@ server.tool(
 
 // ── Annotated Screenshots ───────────────────────────────────────────
 
+type ImageContent = { type: 'image'; data: string; mimeType: string }
+type TextContent = { type: 'text'; text: string }
+type ContentBlock = ImageContent | TextContent
+
 server.tool(
 	'screenshot_annotated',
-	'Take a screenshot of the current viewport with numbered badges overlaid on all interactive elements (buttons, links, inputs, selects). Returns the annotated image as base64 plus a structured legend mapping each number to element details (tag, text, type, bounding rect). Optionally scope to a CSS selector or filter by element type.',
+	'Take a screenshot of the current viewport with numbered badges overlaid on all interactive elements (buttons, links, inputs, selects). Returns the annotated image as base64 plus a structured legend mapping each number to element details (tag, text, type, bounding rect). Optionally scope to a CSS selector or filter by element type. Set includeImage=false to skip the image and only return the element legend (saves ~90K tokens).',
 	ScreenshotAnnotatedSchema,
-	toolHandler('screenshot_annotated'),
+	async (args: Record<string, unknown>): Promise<{ content: ContentBlock[] }> => {
+		if (!isConnected()) {
+			return {
+				content: [{ type: 'text' as const, text: 'Error: Chrome extension not connected. Install Agent Lens extension and open Chrome.' }],
+			}
+		}
+
+		try {
+			const includeImage = args.includeImage !== false
+			const result = await sendRequest('screenshot_annotated', args) as Record<string, unknown>
+			const content: ContentBlock[] = []
+
+			// Extract and return the annotated screenshot as a proper image content block
+			if (includeImage && typeof result.image === 'string') {
+				const raw = result.image as string
+				const base64 = raw.replace(/^data:image\/png;base64,/, '')
+				content.push({ type: 'image' as const, data: base64, mimeType: 'image/png' })
+			}
+
+			// Return the element legend and viewport info as structured text
+			const { image: _image, ...legend } = result
+			content.push({ type: 'text' as const, text: JSON.stringify(legend, null, 2) })
+
+			return { content }
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err)
+			return {
+				content: [{ type: 'text' as const, text: `Error: ${message}` }],
+			}
+		}
+	},
 )
 
 // ── Page Readiness ──────────────────────────────────────────────────
@@ -138,6 +172,27 @@ server.tool(
 	'Segment the current page into semantic regions using landmarks, headings, and common layout patterns. Returns regions with role, CSS selector, bounding rect, and a text summary of contents.',
 	PageRegionsSchema,
 	toolHandler('page_regions'),
+)
+
+// ── Diagnostics ────────────────────────────────────────────────────
+
+server.tool(
+	'connection_status',
+	'Check the WebSocket connection health between the MCP server and Chrome extension. Returns connected state, uptime, and last activity timestamp. Use this to diagnose "extension not connected" issues.',
+	{},
+	async (): Promise<ToolResult> => {
+		const status = getConnectionStatus()
+		const info: Record<string, unknown> = {
+			connected: status.connected,
+			connectedSince: status.connectedSince ? new Date(status.connectedSince).toISOString() : null,
+			uptimeMs: status.connectedSince ? Date.now() - status.connectedSince : null,
+			lastActivity: status.lastActivity ? new Date(status.lastActivity).toISOString() : null,
+			lastActivityAgoMs: status.lastActivity ? Date.now() - status.lastActivity : null,
+		}
+		return {
+			content: [{ type: 'text' as const, text: JSON.stringify(info, null, 2) }],
+		}
+	},
 )
 
 // ── Start ───────────────────────────────────────────────────────────
